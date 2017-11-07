@@ -1,0 +1,163 @@
+<html>
+	<head>
+		<title>JSC Demo</title>
+		<link href='http://fonts.googleapis.com/css?family=Lato:400,700' rel='stylesheet' type='text/css'>
+		<link rel="stylesheet" type="text/css" href="jQuery-Seat-Charts/jquery.seat-charts.css">
+		<link rel="stylesheet" type="text/css" href="style.css">
+	</head>
+	<body>
+		<div class="wrapper">
+			<div class="container">
+				<div id="seat-map">
+					<div class="front-indicator">Frente</div>
+					
+				</div>
+				<div class="booking-details">
+					<h2>Detalhes</h2>
+					
+					<h3> Assentos selecionados (<span id="counter">0</span>):</h3>
+					<form id='form-selected-seats'>
+						<ul id="selected-seats"></ul>
+						<button class="checkout-button" type="submit">Reservar &raquo;</button>
+					</form>				
+					
+					<div id="legend"></div>
+				</div>
+				<div class="booked-details">
+					<h2>Reservados</h2>
+					<ul id='booked-seats'>						
+					</ul>
+				</div>
+			</div>
+		</div>
+		
+		<script src="http://code.jquery.com/jquery-1.11.0.min.js"></script>
+		<script src="jQuery-Seat-Charts/jquery.seat-charts.js"></script>
+		
+		<script>
+			var firstSeatLabel = 1;
+		
+			$(document).ready(function() {
+				var $cart = $('#selected-seats'),
+					$counter = $('#counter'),
+					//$total = $('#total'),
+					sc = $('#seat-map').seatCharts({
+					map: [
+						'ee_ee',
+						'ee_ee',
+						'ee_ee',
+						'ee_ee',
+						'ee_ee',
+						'ee_ee',
+						'ee_ee',
+						'ee_ee',
+						'ee_ee',
+						'ee_ee',
+						'ee_ee',
+						'ee___'
+					],
+					seats: {
+						// f: {
+						// 	price   : 100,
+						// 	classes : 'first-class', //your custom CSS class
+						// 	category: 'Vaga Escolhida'
+						// },
+						e: {
+							price   : 40,
+							classes : 'economy-class', //your custom CSS class
+							category: 'Vaga Escolhida'
+						}					
+					
+					},
+					naming : {
+						top : false,
+						getLabel : function (character, row, column) {
+							return firstSeatLabel++;
+						},
+					},
+					legend : {
+						node : $('#legend'),
+					    items : [
+							// [ 'f', 'available',   'First Class' ],
+							[ 'e', 'available',   'Disponivel'],
+							[ 'f', 'unavailable', 'Reservado']
+					    ]					
+					},
+					click: function () {						
+						if (this.status() == 'available') {
+							//let's create a new <li> which we'll add to the cart items
+							$('<li>'+this.data().category+' # '+this.settings.label+': <input type="text" name="input-'+this.settings.id+'"></input> <a href="#" class="cancel-cart-item">[cancelar]</a></li>')
+								.attr('id', 'cart-item-'+this.settings.id)
+								.data('seatId', this.settings.id)
+								.appendTo($cart);
+							
+							/*
+							 * Lets update the counter and total
+							 *
+							 * .find function will not find the current seat, because it will change its stauts only after return
+							 * 'selected'. This is why we have to add 1 to the length and the current seat price to the total.
+							 */
+							$counter.text(sc.find('selected').length+1);
+							return 'selected';
+							
+						} else if (this.status() == 'selected') {
+							//update the counter
+							$counter.text(sc.find('selected').length-1);
+						
+							//remove the item from our cart
+							$('#cart-item-'+this.settings.id).remove();
+							//seat has been vacated
+							return 'available';
+						} else if (this.status() == 'unavailable') {
+							//seat has been already booked							
+							return 'unavailable';
+						} else {
+							return this.style();
+						}
+						
+					}
+				});
+
+				//this will handle "[cancel]" link clicks
+				$('#selected-seats').on('click', '.cancel-cart-item', function () {
+					//let's just trigger Click event on the appropriate seat, so we don't have to repeat the logic here
+					sc.get($(this).parents('li:first').data('seatId')).click();
+				});
+								
+				recalculateTotal(sc);
+				window.sc = sc;
+
+				$('#form-selected-seats').on('submit',function(event){
+					var assentosMarcados = [];
+					if(sessionStorage.getItem('va-seats')){
+						 assentosMarcados = JSON.parse(sessionStorage.getItem('va-seats'));
+					}
+					
+					event.preventDefault();
+  					var answer = $( this ).serializeArray();
+					answer = answer.map(function(x){
+						x.id = x.name.replace('input-','');
+						assentosMarcados.push(x);
+						return x;
+					});
+					sessionStorage.setItem('va-seats',JSON.stringify(assentosMarcados));
+					recalculateTotal(sc);
+				});
+		});
+
+		function recalculateTotal(sc) {
+			var assentosMarcados = JSON.parse(sessionStorage.getItem('va-seats'));
+				if(assentosMarcados){
+					$("#booked-seats").empty();
+					var booked = [];
+					assentosMarcados.map(function(x){
+						booked.push(x.id);						
+						$("#booked-seats").append('<li>'+x.value+' - # '+$("#"+x.id).text()+'</li>');
+					}); //joga marcados para array
+					sc.get(booked).status('unavailable');
+				}
+		}
+		
+		</script>
+	</body>
+</html>
